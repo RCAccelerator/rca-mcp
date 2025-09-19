@@ -25,22 +25,27 @@ def usage():
 async def amain():
     args = usage()
     env = rcav2.env.Env(args.debug)
-    if args.local_logjuicer:
-        report = await rcav2.logjuicer.get_remote_report(env, args.URL)
-    else:
-        report = await rcav2.logjuicer.get_report(env, args.URL)
-    with open(".report.json", "w") as f:
-        f.write(rcav2.logjuicer.dump_report(report))
-    prompt = rcav2.prompt.report_to_prompt(report)
-    with open(".prompt.txt", "w") as f:
-        f.write(prompt)
-    async for message, event in rcav2.model.stream(
-        env, args.model, args.system, prompt
-    ):
-        if event == "chunk":
-            print(message, end="", file=sys.stdout)
-        elif event == "usage":
-            env.log.info("Request usage: %s -> %s", usage["input"], usage["output"])
+    try:
+        if args.local_logjuicer:
+            report = await rcav2.logjuicer.get_remote_report(env, args.URL)
+        else:
+            report = await rcav2.logjuicer.get_report(env, args.URL)
+        with open(".report.json", "w") as f:
+            f.write(rcav2.logjuicer.dump_report(report))
+        prompt = rcav2.prompt.report_to_prompt(report)
+        with open(".prompt.txt", "w") as f:
+            f.write(prompt)
+        async for message, event in rcav2.model.query(
+            env, args.model, args.system, prompt
+        ):
+            if event == "chunk":
+                print(message, end="", file=sys.stdout)
+            elif event == "usage":
+                env.log.info(
+                    "Request usage: %s -> %s", message["input"], message["output"]
+                )
+    finally:
+        env.close()
 
 
 def main():

@@ -106,8 +106,7 @@ async def get_report(env: Env, url: str) -> Report:
             f"Cookie: mod_auth_openidc_session={env.cookie}"
         )
     env.log.info("Ingesting build log from %s", url)
-    # TODO: handle creating remote report...
-    return make_local_report(url)
+    return await get_remote_report(env, url, None)
 
 
 def dump_report(report: Report) -> str:

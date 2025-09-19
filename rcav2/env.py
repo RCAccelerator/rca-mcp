@@ -20,9 +20,10 @@ class Env:
         self.auth = HTTPSPNEGOAuth(mutual_authentication=OPTIONAL)
         self.log = logging.getLogger("rcav2")
 
-    def __del__(self):
+    def close(self):
         if self.cookie:
-            open(".cookie", "w").write(self.cookie)
+            with open(".cookie", "w") as f:
+                f.write(self.cookie)
 
 
 def make_httpx_client() -> httpx.AsyncClient:
