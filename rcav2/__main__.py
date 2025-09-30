@@ -4,9 +4,11 @@
 import argparse
 import asyncio
 import sys
+import json
 
 import rcav2.logjuicer
 import rcav2.env
+import rcav2.jira
 import rcav2.model
 import rcav2.prompt
 from rcav2.config import DEFAULT_MODEL, DEFAULT_SYSTEM_PROMPT, COOKIE_FILE
@@ -32,12 +34,23 @@ async def run(args, env: rcav2.env.Env):
     prompt = rcav2.prompt.report_to_prompt(report)
     with open(".prompt.txt", "w") as f:
         f.write(prompt)
+    rca_report: dict = {}
     async for message, event in rcav2.model.query(env, args.model, args.system, prompt):
-        if event == "chunk":
-            print(message, end="", file=sys.stdout)
+        if event == "report":
+            rca_report = message
+            print(json.dumps(rca_report, indent=2), end="", file=sys.stdout)
         elif event == "usage":
             print()
             env.log.info("Request usage: %s -> %s", message["input"], message["output"])
+
+    if rca_report and rca_report.get("root_cause"):
+        root_cause = rca_report["root_cause"]
+        env.log.info("Root Cause: %s", root_cause)
+        env.log.info("Searching for Jira issues related to the root cause...")
+        jira_search = rcav2.jira.JiraSearchTool(env, args.model)
+        jira_issues = await jira_search.run(root_cause)
+        if jira_issues:
+            print(json.dumps(jira_issues, indent=2), file=sys.stdout)
 
 
 async def amain():
