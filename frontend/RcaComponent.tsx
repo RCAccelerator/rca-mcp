@@ -13,6 +13,14 @@ interface Tokens {
   output: number;
 }
 
+interface RcaAnalysis {
+  summary: string;
+  root_cause: string;
+  failed_step: string;
+  log_evidence: string;
+  suggested_fix: string;
+}
+
 function Spinner() {
   return (
     <div className="flex justify-center items-center p-8">
@@ -25,7 +33,7 @@ export function RcaComponent(
   { build = "", backendUrl = "" }: RcaComponentProps,
 ) {
   const [status, setStatus] = useState<string[]>([]);
-  const [result, setResult] = useState("");
+  const [report, setReport] = useState<RcaAnalysis | null>(null);
   const [error, setError] = useState("");
   const [logjuicerUrl, setLogjuicerUrl] = useState("");
   const [usage, setUsage] = useState<Tokens | null>(null);
@@ -34,7 +42,7 @@ export function RcaComponent(
 
   async function getReport() {
     setStatus([]);
-    setResult("");
+    setReport(null);
     setError("");
     setLogjuicerUrl("");
     setUsage(null);
@@ -58,8 +66,8 @@ export function RcaComponent(
         case "progress":
           setStatus((prevStatus) => [...prevStatus, body]);
           break;
-        case "chunk":
-          setResult((prevResult) => prevResult + body);
+        case "report":
+          setReport(body);
           break;
         case "logjuicer_url":
           setLogjuicerUrl(body);
@@ -180,7 +188,7 @@ export function RcaComponent(
             </div>
           )}
 
-          {result && (
+          {report && (
             <div className="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-md p-6">
               <div className="flex flex-wrap justify-between items-center border-b border-gray-200 dark:border-gray-700 pb-2 mb-4 gap-2">
                 <h2 className="text-xl font-semibold">
@@ -203,20 +211,27 @@ export function RcaComponent(
                   {build}
                 </a>
               </div>
-              <div className="prose dark:prose-invert max-w-none">
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    pre: ({ node, ...props }) => (
-                      <pre
-                        {...props}
-                        className="whitespace-pre-wrap break-all"
-                      />
-                    ),
-                  }}
-                >
-                  {result}
-                </ReactMarkdown>
+              <div className="prose dark:prose-invert max-w-none space-y-4">
+                <div>
+                  <h3 className="font-semibold text-lg">Summary</h3>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{report.summary}</ReactMarkdown>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg">Root Cause</h3>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{report.root_cause}</ReactMarkdown>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg">Failed Step</h3>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{report.failed_step}</ReactMarkdown>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg">Log Evidence</h3>
+                  <pre className="whitespace-pre-wrap break-all bg-gray-100 dark:bg-gray-700 p-2 rounded"><code>{report.log_evidence}</code></pre>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg">Suggested Fix</h3>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{report.suggested_fix}</ReactMarkdown>
+                </div>
               </div>
             </div>
           )}

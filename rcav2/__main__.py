@@ -33,7 +33,7 @@ async def run(args, env: rcav2.env.Env):
     with open(".prompt.txt", "w") as f:
         f.write(prompt)
     async for message, event in rcav2.model.query(env, args.model, args.system, prompt):
-        if event == "chunk":
+        if event == "report":
             print(message, end="", file=sys.stdout)
         elif event == "usage":
             print()
