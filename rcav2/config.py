@@ -18,3 +18,12 @@ CA_BUNDLE_PATH = os.environ.get(
 )
 COOKIE_FILE = os.environ.get("COOKIE_FILE", ".cookie")
 DATABASE_FILE = os.environ.get("DATABASE_FILE", ".db.sqlite3")
+
+
+# Jira configuration
+JIRA_HOST = os.environ.get("JIRA_HOST")
+JIRA_TOKEN = os.environ.get("JIRA_TOKEN")
+JIRA_URL = f"https://{JIRA_HOST}"
+DEFAULT_JIRA_PROJECTS = [
+    "OSPCIX",
+]
