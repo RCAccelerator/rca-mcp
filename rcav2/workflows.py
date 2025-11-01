@@ -183,9 +183,14 @@ async def rca_react(env: Env, db: Engine | None, url: str, worker: Worker) -> No
         if job:
             await worker.emit(job.model_dump(), event="job")
 
+        predict = rcav2.agent.predict.make_agent()
+        extra = await rcav2.agent.predict.call_agent(
+            predict, job, errors_report, worker
+        )
+
         rca_agent = rcav2.agent.react.make_agent(errors_report, worker, env)
         report = await rcav2.agent.react.call_agent(
-            rca_agent, job, errors_report, worker
+            rca_agent, job, errors_report, extra[0], worker
         )
         await worker.emit(report.model_dump(), event="report")
 

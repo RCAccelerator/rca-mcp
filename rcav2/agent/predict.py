@@ -15,6 +15,11 @@ class RCAAccelerator(dspy.Signature):
 
     You are given a description of the job and the errors found in the logs.
 
+    The log files are condensed in a single markdown errors file using the following format:
+
+      ## {log file name}
+      {errors}
+
     ============================================================================
     INVESTIGATION STRATEGY
     ============================================================================
@@ -53,6 +58,8 @@ class RCAAccelerator(dspy.Signature):
 
     You should order the root causes by the likelihood of the root cause being the actual
     root cause, starting with the most likely root cause.
+
+    You must preserve the log file name from the markdown heading when creating new evidences.
     """
 
     job: rcav2.agent.ansible.Job = dspy.InputField()

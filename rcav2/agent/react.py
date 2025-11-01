@@ -11,7 +11,7 @@ import rcav2.models.errors
 import rcav2.model
 import rcav2.agent.ansible
 from rcav2.worker import Worker
-from rcav2.models.report import Report
+from rcav2.models.report import Report, PossibleRootCause
 
 
 class RCAAccelerator(dspy.Signature):
@@ -115,7 +115,7 @@ class RCAAccelerator(dspy.Signature):
     """
 
     job: rcav2.agent.ansible.Job = dspy.InputField()
-
+    possible_root_causes: list[PossibleRootCause] = dspy.InputField()
     errors: dict[str, int] = dspy.InputField(
         desc="list of source and their error count"
     )
@@ -247,6 +247,7 @@ async def call_agent(
     agent: dspy.ReAct,
     job: rcav2.agent.ansible.Job | None,
     errors: rcav2.models.errors.Report,
+    possible_root_causes: list[PossibleRootCause],
     worker: Worker,
 ) -> Report:
     if not job:
@@ -261,6 +262,11 @@ async def call_agent(
     for logfile in errors.logfiles:
         errors_count[logfile.source] = len(logfile.errors)
     agent.set_lm(rcav2.model.get_lm("gemini-2.5-pro", max_tokens=1024 * 1024))
-    result = await agent.acall(job=job, errors=errors_count, log_url=log_url)
+    result = await agent.acall(
+        job=job,
+        possible_root_causes=possible_root_causes,
+        errors=errors_count,
+        log_url=log_url,
+    )
     await rcav2.model.emit_dspy_usage(result, worker)
     return result.report
