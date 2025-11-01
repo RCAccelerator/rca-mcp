@@ -23,32 +23,25 @@ class RCAAccelerator(dspy.Signature):
     ============================================================================
 
     1. **Determine Build Stage (if log_url is provided):**
-       - Use `check_build_log_directory` to check for common build directories:
-         * '/tmp/build'
-         * '/workspace'
-         * '/opt/stack'
        - This identifies which stage of the build process was reached before failure
        - Follow the instructions in the job description for stage-specific analysis
 
     2. **Examine Final Symptoms:**
-       - Use the `read_errors` tool on `job-output.txt` first
+       - Examine the errors in `job-output.txt` first
        - This identifies the final error or symptom of the failure
 
     3. **Trace Back to Root Cause:**
        - The errors in `job-output.txt` are often just symptoms
        - The actual root cause likely occurred earlier
        - The earlier logs are critical for finding the initial point of failure
-
-    4. **Follow the Error Trail:**
-       - Within each file you inspect, follow the sequence of errors
-       - Understand the full context of how the problem developed
-       - Keep in mind, though, that any errors that occur much earlier - say more than 15
-         minutes earlier - are probably not related.  They may indicate transient or other
-         ignored errors.  You may still want to include them as a potential secondary issue.
+       - Follow the error trail and try to understand the full context of how the problem developed.
        - It is possible that you do not have the root cause in the errors provided.
 
-    5. **Synthesize Your Findings:**
+    4. **Synthesize Your Findings:**
        - Connect the events from the early logs with the final failure shown in `job-output.txt`
+       - The errors closest the event are most likely to be related.
+       - Errors that are much earlier though are probably not related.  They may be transient
+         or other ignored errors.  You may still want to include them as a potential secondary issues.
        - Build a complete and accurate root cause analysis
 
     ============================================================================
@@ -59,8 +52,9 @@ class RCAAccelerator(dspy.Signature):
        - Provide a concise summary of the root cause analysis
        - The summary should be a brief overview that helps someone quickly understand what went wrong
        - The summary should include the stage at which the root cause occurred
-       - The summary MUST also include a small table showing the timeline
-         for the errors that you have identified
+       - The summary MUST also include a small table showing a timeline of ALL of the errors
+         in the log files (including those unrelated to the root cause).  Make sure
+         the table is well formatted and easy to read.
 
     You should identify ALL possible root causes of the failure.
 
@@ -104,7 +98,7 @@ class RCAAccelerator(dspy.Signature):
     - summary: The ticket summary/title
 
     ============================================================================
-    SLACK SEARCH (OPTIONAL)
+    SLACK SEARCH
     ============================================================================
 
     You can also search for information on Slack:
@@ -116,8 +110,8 @@ class RCAAccelerator(dspy.Signature):
 
     job: rcav2.agent.ansible.Job = dspy.InputField()
 
-    errors: dict[str, int] = dspy.InputField(
-        desc="list of source and their error count"
+    errors: list[rcav2.models.errors.LogFile] = dspy.InputField(
+        desc="list of logfiles and their associated errors"
     )
 
     log_url: str | None = dspy.InputField(
@@ -128,14 +122,6 @@ class RCAAccelerator(dspy.Signature):
 
 
 def make_agent(errors: rcav2.models.errors.Report, worker: Worker, env) -> dspy.ReAct:
-    async def read_errors(source: str) -> list[rcav2.models.errors.Error]:
-        """Read the errors contained in a source log, including the before after context"""
-        await worker.emit(f"Checking {source}", "progress")
-        for logfile in errors.logfiles:
-            if logfile.source == source:
-                return logfile.errors
-        return []
-
     async def search_jira_issues(
         query: str, max_results: int | None = 50
     ) -> list[dict[str, str | None]]:
@@ -235,7 +221,6 @@ def make_agent(errors: rcav2.models.errors.Report, worker: Worker, env) -> dspy.
     return dspy.ReAct(
         RCAAccelerator,
         tools=[
-            read_errors,
             search_jira_issues,
             search_slack_messages,
             check_build_log_directory,
@@ -257,10 +242,10 @@ async def call_agent(
         job.description += f"\n\nBuild Log URL: {log_url}"
 
     await worker.emit("Calling RCAAccelerator", "progress")
-    errors_count = dict()
-    for logfile in errors.logfiles:
-        errors_count[logfile.source] = len(logfile.errors)
+    # errors_count = dict()
+    # for logfile in errors.logfiles:
+    #    errors_count[logfile.source] = len(logfile.errors)
     agent.set_lm(rcav2.model.get_lm("gemini-2.5-pro", max_tokens=1024 * 1024))
-    result = await agent.acall(job=job, errors=errors_count, log_url=log_url)
+    result = await agent.acall(job=job, errors=errors.logfiles, log_url=log_url)
     await rcav2.model.emit_dspy_usage(result, worker)
     return result.report
